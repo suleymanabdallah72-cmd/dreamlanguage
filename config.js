@@ -1,0 +1,4 @@
+window.ACADEMY_CONFIG = {
+  SUPABASE_URL: "https://finbgwlatqdioxaxiael.supabase.co",
+  SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpbmJnd2xhdHFkaW94YXhpYWVsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY2MDQwMzAsImV4cCI6MjEwMjE4MDAzMH0.tbbn32IWjrxTyNIH29VNn_rcMINi0l0-OIoI_xAf4XY"
+};

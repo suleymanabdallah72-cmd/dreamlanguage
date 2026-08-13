@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#111936">
+  <meta name="description" content="AcademyPro English Academy Management System">
+  <title>AcademyPro</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+</head>
+<body>
+<div id="setupScreen" class="setup-screen hidden">
+  <div class="auth-card setup-card">
+    <div class="logo-row"><div class="logo">A</div><div><h1>AcademyPro</h1><p>First-time setup required</p></div></div>
+    <h2>Connect your Supabase project</h2>
+    <p>This app is production-ready, but it needs your own Supabase URL and publishable/anon key.</p>
+    <div class="setup-steps">
+      <div><b>1</b><span>Create a Supabase project.</span></div>
+      <div><b>2</b><span>Run <code>supabase/schema.sql</code> in the SQL Editor.</span></div>
+      <div><b>3</b><span>Copy <code>config.example.js</code> to <code>config.js</code> and paste your project URL and anon key.</span></div>
+      <div><b>4</b><span>Create your first user in Supabase Authentication, then set that profile role to <b>admin</b>.</span></div>
+    </div>
+    <a class="primary-btn link-btn" href="README.md">Open full setup guide</a>
+  </div>
+</div>
+
+<div id="authScreen" class="auth-screen hidden">
+  <div class="auth-visual">
+    <div class="auth-copy">
+      <span class="badge">English Academy OS</span>
+      <h1>Run your academy from one place.</h1>
+      <p>Students, schedules, attendance, billing, payroll, progress and staff access — securely connected to the cloud.</p>
+      <div class="auth-feature-grid">
+        <span>✓ Role-based access</span><span>✓ Cloud records</span><span>✓ PDF invoices</span><span>✓ Payroll</span>
+      </div>
+    </div>
+  </div>
+  <div class="auth-panel">
+    <form id="loginForm" class="auth-card">
+      <div class="logo-row"><div class="logo">A</div><div><h1>AcademyPro</h1><p>English Academy</p></div></div>
+      <h2>Welcome back</h2>
+      <p class="muted">Sign in with your staff account.</p>
+      <label>Email<input name="email" type="email" required autocomplete="email"></label>
+      <label>Password<input name="password" type="password" required autocomplete="current-password"></label>
+      <button class="primary-btn full-btn" type="submit">Sign in</button>
+      <button class="text-btn" id="forgotBtn" type="button">Forgot password?</button>
+      <div id="loginError" class="form-error"></div>
+    </form>
+  </div>
+</div>
+
+<div id="app" class="app hidden">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand"><div class="logo">A</div><div><h1>AcademyPro</h1><p id="academyNameSide">English Academy</p></div></div>
+    <nav id="nav">
+      <button data-view="dashboard" class="nav-btn active"><span>⌂</span>Dashboard</button>
+      <button data-view="students" class="nav-btn" data-roles="admin,reception,teacher"><span>👥</span>Students</button>
+      <button data-view="schedule" class="nav-btn" data-roles="admin,reception,teacher"><span>🗓</span>Schedule</button>
+      <button data-view="attendance" class="nav-btn" data-roles="admin,reception,teacher"><span>✓</span>Attendance</button>
+      <button data-view="progress" class="nav-btn" data-roles="admin,teacher"><span>📈</span>Progress</button>
+      <button data-view="billing" class="nav-btn" data-roles="admin,reception,accountant"><span>💳</span>Billing</button>
+      <button data-view="payroll" class="nav-btn" data-roles="admin,accountant"><span>💰</span>Payroll</button>
+      <button data-view="staff" class="nav-btn" data-roles="admin"><span>🧑‍🏫</span>Staff</button>
+      <button data-view="reminders" class="nav-btn" data-roles="admin,reception,accountant"><span>💬</span>Reminders</button>
+      <button data-view="reports" class="nav-btn" data-roles="admin,accountant"><span>📊</span>Reports</button>
+      <button data-view="settings" class="nav-btn" data-roles="admin"><span>⚙</span>Settings</button>
+    </nav>
+    <div class="user-card">
+      <div class="avatar" id="sideAvatar">U</div>
+      <div><strong id="sideName">User</strong><small id="sideRole">Role</small></div>
+      <button id="logoutBtn" title="Sign out">↪</button>
+    </div>
+  </aside>
+
+  <main>
+    <header class="topbar">
+      <div class="top-left">
+        <button id="menuBtn" class="menu-btn">☰</button>
+        <div><p class="eyebrow" id="pageEyebrow">Academy overview</p><h2 id="pageTitle">Dashboard</h2></div>
+      </div>
+      <div class="top-actions">
+        <button class="secondary-btn" id="refreshBtn">↻ Refresh</button>
+        <button class="primary-btn" id="globalAddBtn" data-roles="admin,reception">+ Add student</button>
+        <div class="avatar" id="topAvatar">U</div>
+      </div>
+    </header>
+
+    <section id="dashboard" class="view active">
+      <div class="welcome-card">
+        <div><span class="badge light">Live academy overview</span><h3 id="welcomeText">Good day</h3><p>Here is the latest activity from your academy.</p></div>
+        <button class="white-btn" onclick="openModal('classModal')" data-roles="admin,reception">+ Schedule class</button>
+      </div>
+      <div class="kpi-grid">
+        <article class="kpi"><span>Active students</span><b id="kpiStudents">—</b><small>currently enrolled</small></article>
+        <article class="kpi"><span>Classes this month</span><b id="kpiClasses">—</b><small>scheduled + completed</small></article>
+        <article class="kpi"><span>Collected this month</span><b id="kpiRevenue">—</b><small>payments received</small></article>
+        <article class="kpi"><span>Outstanding</span><b id="kpiOutstanding">—</b><small>unpaid invoices</small></article>
+      </div>
+      <div class="dashboard-grid">
+        <article class="panel">
+          <div class="panel-head"><div><p class="eyebrow">Today</p><h3>Classes</h3></div><button class="text-btn" onclick="goView('schedule')">Full schedule</button></div>
+          <div id="dashClasses" class="stack"></div>
+        </article>
+        <article class="panel">
+          <div class="panel-head"><div><p class="eyebrow">Attention</p><h3>Academy alerts</h3></div></div>
+          <div id="dashAlerts" class="stack"></div>
+        </article>
+        <article class="panel wide">
+          <div class="panel-head"><div><p class="eyebrow">Recent</p><h3>New students</h3></div><button class="text-btn" onclick="goView('students')">All students</button></div>
+          <div id="dashStudents" class="student-strip"></div>
+        </article>
+      </div>
+    </section>
+
+    <section id="students" class="view">
+      <div class="section-head"><div><p class="eyebrow">CRM</p><h3>Student records</h3><p>Registration, course placement, packages, guardians and academy notes.</p></div><button class="primary-btn" onclick="openModal('studentModal')" data-roles="admin,reception">+ Register student</button></div>
+      <div class="filters"><input id="studentSearch" placeholder="Search name, phone or email"><select id="studentStatus"><option value="">All statuses</option><option>Active</option><option>Paused</option><option>Completed</option><option>Inactive</option></select></div>
+      <div class="table-card"><div class="scroll"><table><thead><tr><th>Student</th><th>Course</th><th>Level</th><th>Package</th><th>Credits</th><th>Status</th><th>Joined</th></tr></thead><tbody id="studentsBody"></tbody></table></div></div>
+    </section>
+
+    <section id="schedule" class="view">
+      <div class="section-head"><div><p class="eyebrow">Timetable</p><h3>Class schedule</h3><p>Recurring lessons, replacement classes, teacher allocation and rooms.</p></div><div class="button-row"><button class="secondary-btn" onclick="openModal('availabilityModal')" data-roles="admin,reception,teacher">Teacher availability</button><button class="primary-btn" onclick="openModal('classModal')" data-roles="admin,reception">+ Schedule</button></div></div>
+      <div class="filters"><input id="scheduleDate" type="date"><select id="scheduleTeacher"><option value="">All teachers</option></select><select id="scheduleType"><option value="">All types</option><option>Regular</option><option>Replacement</option><option>Trial</option><option>Make-up</option></select></div>
+      <div id="scheduleGrid" class="card-grid"></div>
+    </section>
+
+    <section id="attendance" class="view">
+      <div class="section-head"><div><p class="eyebrow">Class tracking</p><h3>Attendance</h3><p>Mark attendance and automatically update class-package credits.</p></div></div>
+      <div class="filters"><input id="attendanceDate" type="date"></div>
+      <div id="attendanceGrid" class="card-grid"></div>
+    </section>
+
+    <section id="progress" class="view">
+      <div class="section-head"><div><p class="eyebrow">Academic records</p><h3>Student progress</h3><p>Teacher feedback, skills scores, goals and student development.</p></div><button class="primary-btn" onclick="openModal('progressModal')" data-roles="admin,teacher">+ Progress report</button></div>
+      <div id="progressGrid" class="card-grid"></div>
+    </section>
+
+    <section id="billing" class="view">
+      <div class="section-head"><div><p class="eyebrow">Finance</p><h3>Billing & payments</h3><p>Create invoices, receive payments, download PDFs and monitor balances.</p></div><div class="button-row"><button class="secondary-btn" onclick="openModal('paymentModal')">+ Payment</button><button class="primary-btn" onclick="openModal('invoiceModal')">+ Invoice</button></div></div>
+      <div class="kpi-grid three"><article class="kpi"><span>Invoiced</span><b id="billInvoiced">—</b></article><article class="kpi"><span>Collected</span><b id="billPaid">—</b></article><article class="kpi"><span>Outstanding</span><b id="billDue">—</b></article></div>
+      <div class="table-card"><div class="scroll"><table><thead><tr><th>Invoice</th><th>Student</th><th>Issue date</th><th>Due</th><th>Total</th><th>Paid</th><th>Status</th><th>PDF</th></tr></thead><tbody id="invoiceBody"></tbody></table></div></div>
+    </section>
+
+    <section id="payroll" class="view">
+      <div class="section-head"><div><p class="eyebrow">Compensation</p><h3>Payroll</h3><p>Calculate teacher earnings from completed classes, adjustments and pay status.</p></div><button class="primary-btn" id="generatePayrollBtn">Generate this month</button></div>
+      <div class="table-card"><div class="scroll"><table><thead><tr><th>Staff</th><th>Period</th><th>Teaching hrs</th><th>Rate</th><th>Adjustments</th><th>Net</th><th>Status</th><th>Payslip</th></tr></thead><tbody id="payrollBody"></tbody></table></div></div>
+    </section>
+
+    <section id="staff" class="view">
+      <div class="section-head"><div><p class="eyebrow">Access control</p><h3>Staff & roles</h3><p>Manage academy roles, teacher rates and account access.</p></div><button class="primary-btn" onclick="openModal('staffModal')">+ Add staff profile</button></div>
+      <div id="staffGrid" class="card-grid"></div>
+    </section>
+
+    <section id="reminders" class="view">
+      <div class="section-head"><div><p class="eyebrow">Communication</p><h3>WhatsApp reminders</h3><p>Prepare class and payment reminders. Messages open in WhatsApp for staff to send.</p></div><button class="primary-btn" id="createRemindersBtn">Build reminder queue</button></div>
+      <div class="notice">Automatic WhatsApp sending requires a WhatsApp Business Platform provider. This version safely prepares messages and opens WhatsApp with the student's number and message pre-filled.</div>
+      <div id="reminderGrid" class="card-grid"></div>
+    </section>
+
+    <section id="reports" class="view">
+      <div class="section-head"><div><p class="eyebrow">Management</p><h3>Reports</h3><p>Enrollment, attendance, revenue, outstanding fees and teaching activity.</p></div><button class="secondary-btn" id="exportBtn">Export academy JSON</button></div>
+      <div class="report-grid">
+        <article class="panel"><h3>Enrollment by course</h3><div id="courseBars" class="bars"></div></article>
+        <article class="panel"><p class="eyebrow">Attendance rate</p><div class="big-stat" id="reportAttendance">—</div><p class="muted">Present + late</p></article>
+        <article class="panel"><p class="eyebrow">Collection rate</p><div class="big-stat" id="reportCollection">—</div><p class="muted">Paid against invoices</p></article>
+        <article class="panel"><p class="eyebrow">Teaching hours</p><div class="big-stat" id="reportHours">—</div><p class="muted">Completed classes</p></article>
+      </div>
+    </section>
+
+    <section id="settings" class="view">
+      <div class="section-head"><div><p class="eyebrow">Configuration</p><h3>Academy settings</h3><p>Business information used on invoices, receipts and payslips.</p></div></div>
+      <div class="settings-grid">
+        <form id="settingsForm" class="panel form-grid two">
+          <label>Academy name<input name="academy_name" required></label>
+          <label>Currency<input name="currency" value="RM" maxlength="5"></label>
+          <label>Email<input name="email" type="email"></label>
+          <label>Phone<input name="phone"></label>
+          <label class="span2">Address<textarea name="address" rows="3"></textarea></label>
+          <label>Registration no.<input name="registration_no"></label>
+          <label>Invoice prefix<input name="invoice_prefix" value="INV"></label>
+          <button class="primary-btn span2" type="submit">Save settings</button>
+        </form>
+        <article class="panel">
+          <h3>Cloud protection</h3><p class="muted">Your database security is enforced through Supabase Row Level Security policies. For production, enable the backup level appropriate to your Supabase plan.</p>
+          <hr><h4>Role permissions</h4>
+          <div class="permission-list"><span><b>Admin</b> — full system</span><span><b>Teacher</b> — students, schedule, attendance, progress</span><span><b>Reception</b> — students, scheduling, attendance, billing</span><span><b>Accountant</b> — billing, payroll, reports</span></div>
+        </article>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div id="overlay" class="overlay hidden" onclick="closeModals()"></div>
+
+<!-- Student modal -->
+<div id="studentModal" class="modal hidden"><div class="modal-card">
+  <div class="modal-head"><div><p class="eyebrow">Registration</p><h3>Register student</h3></div><button onclick="closeModals()">×</button></div>
+  <form id="studentForm" class="form-grid two">
+    <label>Full name<input name="full_name" required></label><label>Phone / WhatsApp<input name="phone" required></label>
+    <label>Email<input name="email" type="email"></label><label>Date of birth<input name="date_of_birth" type="date"></label>
+    <label>Course<input name="course" placeholder="IELTS / General English" required></label><label>Level<select name="level"><option>A1</option><option>A2</option><option>B1</option><option>B2</option><option>C1</option><option>C2</option><option>IELTS</option></select></label>
+    <label>Package<select name="package_id" id="studentPackage"><option value="">No package</option></select></label><label>Guardian<input name="guardian_name"></label>
+    <label>Guardian phone<input name="guardian_phone"></label><label>Status<select name="status"><option>Active</option><option>Paused</option><option>Completed</option><option>Inactive</option></select></label>
+    <label class="span2">Notes<textarea name="notes" rows="3"></textarea></label>
+    <div class="form-actions span2"><button type="button" class="secondary-btn" onclick="closeModals()">Cancel</button><button class="primary-btn">Save student</button></div>
+  </form>
+</div></div>
+
+<!-- Class modal -->
+<div id="classModal" class="modal hidden"><div class="modal-card">
+  <div class="modal-head"><div><p class="eyebrow">Timetable</p><h3>Schedule class</h3></div><button onclick="closeModals()">×</button></div>
+  <form id="classForm" class="form-grid two">
+    <label>Class title<input name="title" required placeholder="IELTS Speaking"></label><label>Type<select name="class_type"><option>Regular</option><option>Replacement</option><option>Trial</option><option>Make-up</option></select></label>
+    <label>Teacher<select name="teacher_id" id="classTeacher" required></select></label><label>Student<select name="student_id" id="classStudent" required></select></label>
+    <label>Date<input name="class_date" type="date" required></label><label>Start time<input name="start_time" type="time" required></label>
+    <label>Duration (hours)<input name="duration_hours" type="number" min=".5" step=".5" value="1.5" required></label><label>Room / Zoom link<input name="room"></label>
+    <label>Recurring<select name="recurrence"><option value="none">One class only</option><option value="weekly4">Weekly × 4</option><option value="weekly8">Weekly × 8</option><option value="weekly12">Weekly × 12</option></select></label><label>Status<select name="status"><option>Scheduled</option><option>Completed</option><option>Cancelled</option></select></label>
+    <label class="span2">Internal note<textarea name="notes" rows="2"></textarea></label>
+    <div class="form-actions span2"><button type="button" class="secondary-btn" onclick="closeModals()">Cancel</button><button class="primary-btn">Save class(es)</button></div>
+  </form>
+</div></div>
+
+<!-- Availability modal -->
+<div id="availabilityModal" class="modal hidden"><div class="modal-card small">
+  <div class="modal-head"><div><p class="eyebrow">Teachers</p><h3>Add availability</h3></div><button onclick="closeModals()">×</button></div>
+  <form id="availabilityForm" class="form-grid two">
+    <label>Teacher<select name="teacher_id" id="availabilityTeacher"></select></label><label>Day<select name="weekday"><option value="1">Monday</option><option value="2">Tuesday</option><option value="3">Wednesday</option><option value="4">Thursday</option><option value="5">Friday</option><option value="6">Saturday</option><option value="0">Sunday</option></select></label>
+    <label>From<input name="start_time" type="time" required></label><label>Until<input name="end_time" type="time" required></label>
+    <div class="form-actions span2"><button class="primary-btn">Save availability</button></div>
+  </form>
+</div></div>
+
+<!-- Progress modal -->
+<div id="progressModal" class="modal hidden"><div class="modal-card">
+  <div class="modal-head"><div><p class="eyebrow">Academic</p><h3>Progress report</h3></div><button onclick="closeModals()">×</button></div>
+  <form id="progressForm" class="form-grid two">
+    <label>Student<select name="student_id" id="progressStudent"></select></label><label>Report date<input name="report_date" type="date" required></label>
+    <label>Speaking / 10<input name="speaking" type="number" min="0" max="10" value="5"></label><label>Listening / 10<input name="listening" type="number" min="0" max="10" value="5"></label>
+    <label>Reading / 10<input name="reading" type="number" min="0" max="10" value="5"></label><label>Writing / 10<input name="writing" type="number" min="0" max="10" value="5"></label>
+    <label class="span2">Teacher feedback<textarea name="feedback" rows="3" required></textarea></label><label class="span2">Next goals<textarea name="goals" rows="2"></textarea></label>
+    <div class="form-actions span2"><button class="primary-btn">Save report</button></div>
+  </form>
+</div></div>
+
+<!-- Invoice modal -->
+<div id="invoiceModal" class="modal hidden"><div class="modal-card small">
+  <div class="modal-head"><div><p class="eyebrow">Billing</p><h3>Create invoice</h3></div><button onclick="closeModals()">×</button></div>
+  <form id="invoiceForm" class="form-grid two">
+    <label>Student<select name="student_id" id="invoiceStudent"></select></label><label>Due date<input name="due_date" type="date" required></label>
+    <label>Description<input name="description" value="Tuition fee" required></label><label>Amount<input name="amount" type="number" min="0" step=".01" required></label>
+    <label>Discount<input name="discount" type="number" min="0" step=".01" value="0"></label><label>Tax<input name="tax" type="number" min="0" step=".01" value="0"></label>
+    <div class="form-actions span2"><button class="primary-btn">Create invoice</button></div>
+  </form>
+</div></div>
+
+<!-- Payment modal -->
+<div id="paymentModal" class="modal hidden"><div class="modal-card small">
+  <div class="modal-head"><div><p class="eyebrow">Payments</p><h3>Record payment</h3></div><button onclick="closeModals()">×</button></div>
+  <form id="paymentForm" class="form-grid two">
+    <label>Invoice<select name="invoice_id" id="paymentInvoice"></select></label><label>Amount<input name="amount" type="number" min="0" step=".01" required></label>
+    <label>Payment date<input name="payment_date" type="date" required></label><label>Method<select name="method"><option>Bank Transfer</option><option>Cash</option><option>Card</option><option>Online</option></select></label>
+    <label class="span2">Reference<input name="reference"></label><div class="form-actions span2"><button class="primary-btn">Record payment</button></div>
+  </form>
+</div></div>
+
+<!-- Staff modal -->
+<div id="staffModal" class="modal hidden"><div class="modal-card small">
+  <div class="modal-head"><div><p class="eyebrow">Staff</p><h3>Create staff profile</h3></div><button onclick="closeModals()">×</button></div>
+  <div class="notice">Create the user's login first in Supabase Authentication. Then paste that user's UUID here to assign the profile and role.</div>
+  <form id="staffForm" class="form-grid two">
+    <label class="span2">Auth user UUID<input name="id" required placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"></label>
+    <label>Full name<input name="full_name" required></label><label>Role<select name="role"><option>teacher</option><option>reception</option><option>accountant</option><option>admin</option></select></label>
+    <label>Email<input name="email" type="email"></label><label>Phone<input name="phone"></label>
+    <label>Hourly rate<input name="hourly_rate" type="number" min="0" step=".01" value="50"></label><label>Status<select name="status"><option>Active</option><option>On Leave</option><option>Inactive</option></select></label>
+    <div class="form-actions span2"><button class="primary-btn">Save staff profile</button></div>
+  </form>
+</div></div>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body></html>
