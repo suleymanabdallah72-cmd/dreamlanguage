@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#111936">
-  <meta name="description" content="AcademyPro English Academy Management System">
+  <meta name="description" content="Dream Language Centre English Academy Management System">
   <title>Dream Language Centre</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -16,7 +16,7 @@
 <body>
 <div id="setupScreen" class="setup-screen hidden">
   <div class="auth-card setup-card">
-    <div class="logo-row"><div class="logo">A</div><div><h1>AcademyPro</h1><p>First-time setup required</p></div></div>
+    <div class="logo-row"><div class="logo">A</div><div><h1>Dream Language Centre</h1><p>First-time setup required</p></div></div>
     <h2>Connect your Supabase project</h2>
     <p>This app is production-ready, but it needs your own Supabase URL and publishable/anon key.</p>
     <div class="setup-steps">
@@ -32,7 +32,7 @@
 <div id="authScreen" class="auth-screen hidden">
   <div class="auth-visual">
     <div class="auth-copy">
-      <span class="badge">English Academy OS</span>
+      <span class="badge">Dream Language Centre OS</span>
       <h1>Run your academy from one place.</h1>
       <p>Students, schedules, attendance, billing, payroll, progress and staff access — securely connected to the cloud.</p>
       <div class="auth-feature-grid">
@@ -42,7 +42,7 @@
   </div>
   <div class="auth-panel">
     <form id="loginForm" class="auth-card">
-      <div class="logo-row"><div class="logo">A</div><div><h1>AcademyPro</h1><p>English Academy</p></div></div>
+      <div class="logo-row"><div class="logo">A</div><div><h1>Dream Language Centre</h1><p>English Academy</p></div></div>
       <h2>Welcome back</h2>
       <p class="muted">Sign in with your staff account.</p>
       <label>Email<input name="email" type="email" required autocomplete="email"></label>
@@ -56,7 +56,7 @@
 
 <div id="app" class="app hidden">
   <aside class="sidebar" id="sidebar">
-    <div class="brand"><div class="logo">A</div><div><h1>AcademyPro</h1><p id="academyNameSide">English Academy</p></div></div>
+    <div class="brand"><div class="logo">A</div><div><h1>Dream Language Centre</h1><p id="academyNameSide">English Academy</p></div></div>
     <nav id="nav">
       <button data-view="dashboard" class="nav-btn active"><span>⌂</span>Dashboard</button>
       <button data-view="students" class="nav-btn" data-roles="admin,reception,teacher"><span>👥</span>Students</button>
@@ -67,6 +67,7 @@
       <button data-view="payroll" class="nav-btn" data-roles="admin,accountant"><span>💰</span>Payroll</button>
       <button data-view="staff" class="nav-btn" data-roles="admin"><span>🧑‍🏫</span>Staff</button>
       <button data-view="reminders" class="nav-btn" data-roles="admin,reception,accountant"><span>💬</span>Reminders</button>
+      <button data-view="communications" class="nav-btn" data-roles="admin,reception,teacher,accountant"><span>📨</span>Parent Messages</button>
       <button data-view="reports" class="nav-btn" data-roles="admin,accountant"><span>📊</span>Reports</button>
       <button data-view="settings" class="nav-btn" data-roles="admin"><span>⚙</span>Settings</button>
     </nav>
@@ -157,9 +158,20 @@
     </section>
 
     <section id="reminders" class="view">
-      <div class="section-head"><div><p class="eyebrow">Communication</p><h3>WhatsApp reminders</h3><p>Prepare class and payment reminders. Messages open in WhatsApp for staff to send.</p></div><button class="primary-btn" id="createRemindersBtn">Build reminder queue</button></div>
-      <div class="notice">Automatic WhatsApp sending requires a WhatsApp Business Platform provider. This version safely prepares messages and opens WhatsApp with the student's number and message pre-filled.</div>
+      <div class="section-head"><div><p class="eyebrow">Communication</p><h3>Reminder queue</h3><p>Prepare class and payment reminders based on each family's preferred communication channel.</p></div><button class="primary-btn" id="createRemindersBtn">Build reminder queue</button></div>
+      <div class="notice">WhatsApp messages can open with the number and text pre-filled. WeChat messages are prepared for copying or for future Official Account/API delivery. Personal WeChat accounts cannot be safely automated from browser code.</div>
       <div id="reminderGrid" class="card-grid"></div>
+    </section>
+
+    <section id="communications" class="view">
+      <div class="section-head"><div><p class="eyebrow">Parents & guardians</p><h3>Parent messages</h3><p>Send class updates, payment reminders, progress updates and custom messages through WhatsApp or WeChat-ready workflows.</p></div><button class="primary-btn" onclick="openModal('messageModal')">+ New message</button></div>
+      <div class="kpi-grid three">
+        <article class="kpi"><span>Queued</span><b id="msgQueued">—</b></article>
+        <article class="kpi"><span>Sent / opened</span><b id="msgSent">—</b></article>
+        <article class="kpi"><span>WeChat preferred</span><b id="msgWechatFamilies">—</b></article>
+      </div>
+      <div class="filters"><select id="messageChannelFilter"><option value="">All channels</option><option>WhatsApp</option><option>WeChat</option><option>Both</option></select><select id="messageTypeFilter"><option value="">All message types</option><option>Class reminder</option><option>Payment reminder</option><option>Progress update</option><option>Schedule change</option><option>Custom</option></select></div>
+      <div class="table-card"><div class="scroll"><table><thead><tr><th>Student</th><th>Guardian</th><th>Channel</th><th>Type</th><th>Message</th><th>Status</th><th>Action</th></tr></thead><tbody id="communicationsBody"></tbody></table></div></div>
     </section>
 
     <section id="reports" class="view">
@@ -205,7 +217,8 @@
     <label>Email<input name="email" type="email"></label><label>Date of birth<input name="date_of_birth" type="date"></label>
     <label>Course<input name="course" placeholder="IELTS / General English" required></label><label>Level<select name="level"><option>A1</option><option>A2</option><option>B1</option><option>B2</option><option>C1</option><option>C2</option><option>IELTS</option></select></label>
     <label>Package<select name="package_id" id="studentPackage"><option value="">No package</option></select></label><label>Guardian<input name="guardian_name"></label>
-    <label>Guardian phone<input name="guardian_phone"></label><label>Status<select name="status"><option>Active</option><option>Paused</option><option>Completed</option><option>Inactive</option></select></label>
+    <label>Guardian phone<input name="guardian_phone"></label><label>Guardian WeChat ID<input name="guardian_wechat"></label>
+    <label>Preferred contact<select name="preferred_channel"><option value="WhatsApp">WhatsApp</option><option value="WeChat">WeChat</option><option value="Both">Both</option><option value="Phone">Phone</option></select></label><label>Status<select name="status"><option>Active</option><option>Paused</option><option>Completed</option><option>Inactive</option></select></label>
     <label class="span2">Notes<textarea name="notes" rows="3"></textarea></label>
     <div class="form-actions span2"><button type="button" class="secondary-btn" onclick="closeModals()">Cancel</button><button class="primary-btn">Save student</button></div>
   </form>
@@ -278,6 +291,19 @@
     <label>Email<input name="email" type="email"></label><label>Phone<input name="phone"></label>
     <label>Hourly rate<input name="hourly_rate" type="number" min="0" step=".01" value="50"></label><label>Status<select name="status"><option>Active</option><option>On Leave</option><option>Inactive</option></select></label>
     <div class="form-actions span2"><button class="primary-btn">Save staff profile</button></div>
+  </form>
+</div></div>
+
+
+<div id="messageModal" class="modal hidden"><div class="modal-card">
+  <div class="modal-head"><div><p class="eyebrow">Parent communication</p><h3>New parent message</h3></div><button onclick="closeModals()">×</button></div>
+  <form id="messageForm" class="form-grid two">
+    <label>Student<select name="student_id" id="messageStudent" required></select></label>
+    <label>Channel<select name="channel" id="messageChannel"><option>Preferred</option><option>WhatsApp</option><option>WeChat</option><option>Both</option></select></label>
+    <label>Message type<select name="message_type"><option>Class reminder</option><option>Payment reminder</option><option>Progress update</option><option>Schedule change</option><option>Custom</option></select></label>
+    <label>Send / schedule date<input name="scheduled_for" type="datetime-local"></label>
+    <label class="span2">Message<textarea name="message" rows="5" required placeholder="Write the message to the parent or guardian..."></textarea></label>
+    <div class="form-actions span2"><button type="button" class="secondary-btn" onclick="closeModals()">Cancel</button><button class="primary-btn">Add to message queue</button></div>
   </form>
 </div></div>
 

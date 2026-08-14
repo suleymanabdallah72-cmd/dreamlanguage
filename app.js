@@ -1,4 +1,4 @@
-let sb, session, me, settings={}, students=[], staff=[], packages=[], classes=[], attendance=[], progress=[], invoices=[], payments=[], payroll=[], reminders=[], availability=[];
+let sb, session, me, settings={}, students=[], staff=[], packages=[], classes=[], attendance=[], progress=[], invoices=[], payments=[], payroll=[], reminders=[], availability=[], communications=[];
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const today=()=>new Date().toISOString().slice(0,10);
 const monthBounds=()=>{const d=new Date();return [new Date(d.getFullYear(),d.getMonth(),1).toISOString().slice(0,10),new Date(d.getFullYear(),d.getMonth()+1,0).toISOString().slice(0,10)]};
@@ -48,16 +48,17 @@ async function loadAll(){
     can("admin","reception","accountant")?sb.from("payments").select("*").order("payment_date",{ascending:false}):Promise.resolve({data:[]}),
     can("admin","accountant")?sb.from("payroll").select("*").order("period_start",{ascending:false}):Promise.resolve({data:[]}),
     can("admin","reception","accountant")?sb.from("reminders").select("*").order("created_at",{ascending:false}):Promise.resolve({data:[]}),
-    can("admin","teacher","reception")?sb.from("teacher_availability").select("*"):Promise.resolve({data:[]})
+    can("admin","teacher","reception")?sb.from("teacher_availability").select("*"):Promise.resolve({data:[]}),
+    can("admin","teacher","reception","accountant")?sb.from("communications").select("*").order("created_at",{ascending:false}):Promise.resolve({data:[]})
   ];
   const r=await Promise.all(queries);
   if(r[0].error) fail(r[0].error);
-  settings=r[0].data||{}; staff=r[1].data||[]; students=r[2].data||[]; packages=r[3].data||[]; classes=r[4].data||[]; attendance=r[5].data||[]; progress=r[6].data||[]; invoices=r[7].data||[]; payments=r[8].data||[]; payroll=r[9].data||[]; reminders=r[10].data||[];availability=r[11].data||[];
+  settings=r[0].data||{}; staff=r[1].data||[]; students=r[2].data||[]; packages=r[3].data||[]; classes=r[4].data||[]; attendance=r[5].data||[]; progress=r[6].data||[]; invoices=r[7].data||[]; payments=r[8].data||[]; payroll=r[9].data||[]; reminders=r[10].data||[];availability=r[11].data||[];communications=r[12].data||[];
 }
 function goView(v){
   const nav=$(`.nav-btn[data-view="${v}"]`);if(nav?.classList.contains("hidden"))return;
   $$(".view").forEach(x=>x.classList.toggle("active",x.id===v));$$(".nav-btn").forEach(x=>x.classList.toggle("active",x.dataset.view===v));
-  const names={dashboard:["Academy overview","Dashboard"],students:["CRM","Students"],schedule:["Timetable","Schedule"],attendance:["Class tracking","Attendance"],progress:["Academic records","Progress"],billing:["Finance","Billing"],payroll:["Compensation","Payroll"],staff:["Access control","Staff"],reminders:["Communication","Reminders"],reports:["Management","Reports"],settings:["Configuration","Settings"]};
+  const names={dashboard:["Academy overview","Dashboard"],students:["CRM","Students"],schedule:["Timetable","Schedule"],attendance:["Class tracking","Attendance"],progress:["Academic records","Progress"],billing:["Finance","Billing"],payroll:["Compensation","Payroll"],staff:["Access control","Staff"],reminders:["Communication","Reminders"],communications:["Parents & guardians","Parent Messages"],reports:["Management","Reports"],settings:["Configuration","Settings"]};
   $("#pageEyebrow").textContent=names[v][0];$("#pageTitle").textContent=names[v][1];$("#sidebar").classList.remove("open");renderAll();
 }
 window.goView=goView;
@@ -79,7 +80,7 @@ function populate(){
  const teachers=staff.filter(x=>["teacher","admin"].includes(x.role)&&x.status==="Active").map(x=>`<option value="${x.id}">${esc(x.full_name)}</option>`).join("");
  const studs=students.filter(x=>x.status==="Active").map(x=>`<option value="${x.id}">${esc(x.full_name)}</option>`).join("");
  ["classTeacher","availabilityTeacher"].forEach(id=>{if($("#"+id))$("#"+id).innerHTML=teachers});
- ["classStudent","progressStudent","invoiceStudent"].forEach(id=>{if($("#"+id))$("#"+id).innerHTML=studs});
+ ["classStudent","progressStudent","invoiceStudent","messageStudent"].forEach(id=>{if($("#"+id))$("#"+id).innerHTML=studs});
  if($("#studentPackage"))$("#studentPackage").innerHTML=`<option value="">No package</option>`+packages.map(p=>`<option value="${p.id}">${esc(p.name)} — ${p.total_credits}h / ${money(p.price)}</option>`).join("");
  if($("#scheduleTeacher")){const old=$("#scheduleTeacher").value;$("#scheduleTeacher").innerHTML=`<option value="">All teachers</option>${teachers}`;$("#scheduleTeacher").value=old}
  const openInv=invoices.filter(i=>!["Paid","Cancelled"].includes(i.status));
@@ -89,7 +90,7 @@ function paidForInvoice(id){return payments.filter(p=>p.invoice_id===id).reduce(
 function balanceInvoice(i){return Math.max(0,Number(i.total)-paidForInvoice(i.id))}
 function invoiceStatus(i){const p=paidForInvoice(i.id);if(p>=Number(i.total))return"Paid";if(p>0)return"Partial";if(new Date(i.due_date+"T23:59:59")<new Date())return"Overdue";return i.status==="Draft"?"Draft":"Issued"}
 
-function renderAll(){populate();renderDashboard();renderStudents();renderSchedule();renderAttendance();renderProgress();renderBilling();renderPayroll();renderStaff();renderReminders();renderReports();renderSettings()}
+function renderAll(){populate();renderDashboard();renderStudents();renderSchedule();renderAttendance();renderProgress();renderBilling();renderPayroll();renderStaff();renderReminders();renderCommunications();renderReports();renderSettings()}
 function renderDashboard(){
  $("#academyNameSide").textContent=settings.academy_name||"English Academy"; const h=new Date().getHours();$("#welcomeText").textContent=`Good ${h<12?"morning":h<18?"afternoon":"evening"}, ${me.full_name.split(" ")[0]} 👋`;
  $("#kpiStudents").textContent=students.filter(s=>s.status==="Active").length;
@@ -146,8 +147,18 @@ function renderStaff(){
  $("#staffGrid").innerHTML=staff.map(u=>`<article class="item-card"><div class="card-head"><div class="mini-avatar">${initials(u.full_name)}</div><span class="status ${st(u.status)}">${u.status}</span></div><h4>${esc(u.full_name)}</h4><p>${esc(u.role)} · ${esc(u.email||"")}</p><div class="meta"><div><span>Hourly rate</span><b>${money(u.hourly_rate)}</b></div><div><span>Classes</span><b>${classes.filter(c=>c.teacher_id===u.id).length}</b></div></div></article>`).join("");
 }
 function renderReminders(){
- $("#reminderGrid").innerHTML=reminders.map(r=>`<article class="item-card"><div class="card-head"><span class="status ${st(r.status)}">${r.status}</span><small>${r.reminder_type}</small></div><h4>${esc(student(r.student_id)?.full_name||"Student")}</h4><p>${esc(r.message)}</p><div class="card-foot"><small>${esc(r.phone||"")}</small><button class="primary-btn" onclick="openWhatsApp('${r.id}')">Open WhatsApp</button></div></article>`).join("")||`<div class="panel empty">No reminders queued.</div>`;
+ $("#reminderGrid").innerHTML=reminders.map(r=>{const s=student(r.student_id),pref=s?.preferred_channel||"WhatsApp";const wa=(pref==="WhatsApp"||pref==="Both")?`<button class="primary-btn" onclick="openWhatsApp('${r.id}')">WhatsApp</button>`:"";const wc=(pref==="WeChat"||pref==="Both")?`<button class="secondary-btn" onclick="copyWeChatReminder('${r.id}')">Copy for WeChat</button>`:"";return`<article class="item-card"><div class="card-head"><span class="status ${st(r.status)}">${r.status}</span><small>${r.reminder_type}</small></div><h4>${esc(s?.full_name||"Student")}</h4><p>${esc(r.message)}</p><div class="meta"><div><span>Preferred</span><b>${esc(pref)}</b></div><div><span>WeChat ID</span><b>${esc(s?.guardian_wechat||"—")}</b></div></div><div class="card-foot"><small>${esc(r.phone||"")}</small><div class="button-row">${wa}${wc}</div></div></article>`}).join("")||`<div class="panel empty">No reminders queued.</div>`;
 }
+window.copyWeChatReminder=async id=>{const r=reminders.find(x=>x.id===id);if(!r)return;await navigator.clipboard.writeText(r.message);await sb.from("reminders").update({status:"Copied",sent_at:new Date().toISOString()}).eq("id",id);await loadAll();renderAll();toast("WeChat message copied")};
+
+function renderCommunications(){
+ if(!$("#communicationsBody"))return;const ch=$("#messageChannelFilter")?.value||"",ty=$("#messageTypeFilter")?.value||"";const list=communications.filter(m=>(!ch||m.channel===ch)&&(!ty||m.message_type===ty));$("#msgQueued").textContent=communications.filter(x=>x.status==="Queued").length;$("#msgSent").textContent=communications.filter(x=>["Sent","Opened","Copied"].includes(x.status)).length;$("#msgWechatFamilies").textContent=students.filter(s=>["WeChat","Both"].includes(s.preferred_channel)).length;$("#communicationsBody").innerHTML=list.map(m=>{const s=student(m.student_id),actions=[];if(["WhatsApp","Both"].includes(m.channel)&&m.guardian_phone)actions.push(`<button class="text-btn" onclick="sendCommunicationWhatsApp('${m.id}')">WhatsApp</button>`);if(["WeChat","Both"].includes(m.channel))actions.push(`<button class="text-btn" onclick="copyCommunicationWeChat('${m.id}')">Copy WeChat</button>`);actions.push(`<button class="text-btn" onclick="markCommunicationSent('${m.id}')">Mark sent</button>`);return`<tr><td>${esc(s?.full_name||"Student")}</td><td>${esc(m.guardian_name||"—")}</td><td>${esc(m.channel)}</td><td>${esc(m.message_type)}</td><td style="max-width:320px">${esc(m.message)}</td><td><span class="status ${st(m.status)}">${esc(m.status)}</span></td><td>${actions.join(" · ")}</td></tr>`}).join("")||`<tr><td colspan="7"><div class="empty">No parent messages yet.</div></td></tr>`;
+}
+if($("#messageChannelFilter"))$("#messageChannelFilter").onchange=renderCommunications;if($("#messageTypeFilter"))$("#messageTypeFilter").onchange=renderCommunications;
+window.sendCommunicationWhatsApp=async id=>{const m=communications.find(x=>x.id===id);if(!m)return;window.open(`https://wa.me/${cleanPhone(m.guardian_phone)}?text=${encodeURIComponent(m.message)}`,"_blank","noopener");await sb.from("communications").update({status:"Opened",sent_at:new Date().toISOString()}).eq("id",id);await loadAll();renderCommunications()};
+window.copyCommunicationWeChat=async id=>{const m=communications.find(x=>x.id===id);if(!m)return;await navigator.clipboard.writeText(m.message);await sb.from("communications").update({status:"Copied",sent_at:new Date().toISOString()}).eq("id",id);await loadAll();renderCommunications();toast(`Copied for WeChat${m.guardian_wechat?` (${m.guardian_wechat})`:""}`)};
+window.markCommunicationSent=async id=>{const{error}=await sb.from("communications").update({status:"Sent",sent_at:new Date().toISOString()}).eq("id",id);if(error)return fail(error);await loadAll();renderCommunications();toast("Message marked sent")};
+
 function renderReports(){
  const counts={};students.forEach(s=>counts[s.course]=(counts[s.course]||0)+1);const max=Math.max(1,...Object.values(counts));$("#courseBars").innerHTML=Object.entries(counts).map(([k,v])=>`<div class="bar-row"><header><span>${esc(k)}</span><b>${v}</b></header><div class="bar-track"><div class="bar-fill" style="width:${v/max*100}%"></div></div></div>`).join("");
  const at=attendance.length,pr=attendance.filter(a=>["Present","Late"].includes(a.status)).length;$("#reportAttendance").textContent=(at?Math.round(pr/at*100):0)+"%";
@@ -171,13 +182,15 @@ $("#paymentForm").onsubmit=async e=>{e.preventDefault();const f=formObj(e.target
 $("#staffForm").onsubmit=async e=>{e.preventDefault();const f=formObj(e.target);f.hourly_rate=Number(f.hourly_rate);const{error}=await sb.from("profiles").insert(f);if(error)return fail(error);closeModals();await loadAll();renderAll();toast("Staff profile added")};
 $("#settingsForm").onsubmit=async e=>{e.preventDefault();const f=formObj(e.target);const{error}=await sb.from("settings").update({...f,updated_at:new Date().toISOString()}).eq("id",settings.id);if(error)return fail(error);await loadAll();renderAll();toast("Settings saved")};
 
+$("#messageForm").onsubmit=async e=>{e.preventDefault();const f=formObj(e.target),s=student(f.student_id);if(!s)return toast("Choose a student");const channel=f.channel==="Preferred"?(s.preferred_channel||"WhatsApp"):f.channel;const row={student_id:s.id,guardian_name:s.guardian_name||"",guardian_phone:s.guardian_phone||s.phone||"",guardian_wechat:s.guardian_wechat||"",channel,message_type:f.message_type,message:f.message,scheduled_for:f.scheduled_for?new Date(f.scheduled_for).toISOString():null,created_by:me.id,status:"Queued"};const{error}=await sb.from("communications").insert(row);if(error)return fail(error);e.target.reset();closeModals();await loadAll();renderAll();toast("Parent message queued")};
+
 $("#generatePayrollBtn").onclick=async()=>{const[a,b]=monthBounds(),teachers=staff.filter(x=>["teacher","admin"].includes(x.role)&&x.status==="Active"),rows=teachers.map(t=>{const h=classes.filter(c=>c.teacher_id===t.id&&c.status==="Completed"&&c.class_date>=a&&c.class_date<=b).reduce((x,c)=>x+Number(c.duration_hours),0),rate=Number(t.hourly_rate||0);return{staff_id:t.id,period_start:a,period_end:b,teaching_hours:h,hourly_rate:rate,base_pay:h*rate,adjustments:0,net_pay:h*rate,status:"Draft"}});const{error}=await sb.from("payroll").upsert(rows,{onConflict:"staff_id,period_start,period_end"});if(error)return fail(error);await loadAll();renderAll();toast("Payroll generated")};
 
 $("#createRemindersBtn").onclick=async()=>{
  const rows=[];const tomorrow=new Date();tomorrow.setDate(tomorrow.getDate()+1);const td=tomorrow.toISOString().slice(0,10);
  classes.filter(c=>c.class_date===td&&c.status==="Scheduled").forEach(c=>{const s=student(c.student_id);if(s?.phone)rows.push({student_id:s.id,reminder_type:"Class reminder",phone:s.phone,related_id:c.id,message:`Hi ${s.full_name}, reminder that your ${c.title} class is tomorrow at ${c.start_time.slice(0,5)}. — ${settings.academy_name}`})});
  invoices.filter(i=>["Overdue","Issued","Partial"].includes(invoiceStatus(i))&&balanceInvoice(i)>0).forEach(i=>{const s=student(i.student_id);if(s?.phone)rows.push({student_id:s.id,reminder_type:"Payment reminder",phone:s.phone,related_id:i.id,message:`Hi ${s.full_name}, this is a friendly reminder that ${money(balanceInvoice(i))} is outstanding for invoice ${i.invoice_no}. Thank you. — ${settings.academy_name}`})});
- if(!rows.length)return toast("No reminders needed");const{error}=await sb.from("reminders").insert(rows);if(error)return fail(error);await loadAll();renderAll();toast(`${rows.length} reminders prepared`);
+ if(!rows.length)return toast("No reminders needed");const{error}=await sb.from("reminders").insert(rows);if(error)return fail(error);const commRows=rows.map(r=>{const s=student(r.student_id);return{student_id:r.student_id,guardian_name:s?.guardian_name||"",guardian_phone:s?.guardian_phone||s?.phone||"",guardian_wechat:s?.guardian_wechat||"",channel:s?.preferred_channel||"WhatsApp",message_type:r.reminder_type,message:r.message,related_id:r.related_id,created_by:me.id,status:"Queued"}});const cRes=await sb.from("communications").insert(commRows);if(cRes.error)return fail(cRes.error);await loadAll();renderAll();toast(`${rows.length} reminders prepared`);
 };
 window.openWhatsApp=async id=>{const r=reminders.find(x=>x.id===id);window.open(`https://wa.me/${cleanPhone(r.phone)}?text=${encodeURIComponent(r.message)}`,"_blank","noopener");await sb.from("reminders").update({status:"Opened",sent_at:new Date().toISOString()}).eq("id",id);await loadAll();renderReminders()};
 
@@ -188,6 +201,6 @@ window.invoicePDF=id=>{const i=invoices.find(x=>x.id===id),s=student(i.student_i
 window.receiptPDF=id=>{const i=invoices.find(x=>x.id===id),s=student(i.student_id),doc=pdfBase("RECEIPT",i.invoice_no);doc.setFont("helvetica","normal");doc.setFontSize(10);doc.text(`Received from: ${s?.full_name||""}`,20,58);doc.text(`Invoice: ${i.invoice_no}`,20,66);doc.text(`Amount received: ${money(paidForInvoice(i.id))}`,20,78);doc.text(`Remaining balance: ${money(balanceInvoice(i))}`,20,86);doc.text("Thank you for your payment.",20,105);doc.save(`Receipt-${i.invoice_no}.pdf`)};
 window.payslipPDF=id=>{const p=payroll.find(x=>x.id===id),u=person(p.staff_id),doc=pdfBase("PAYSLIP",`${p.period_start} — ${p.period_end}`);doc.setFont("helvetica","normal");doc.setFontSize(10);doc.text(`Employee: ${u?.full_name||""}`,20,58);doc.text(`Role: ${u?.role||""}`,20,66);doc.text(`Teaching hours: ${p.teaching_hours}`,20,82);doc.text(`Hourly rate: ${money(p.hourly_rate)}`,20,90);doc.text(`Base pay: ${money(p.base_pay)}`,20,98);doc.text(`Adjustments: ${money(p.adjustments)}`,20,106);doc.setFont("helvetica","bold");doc.text(`Net pay: ${money(p.net_pay)}`,20,118);doc.text(`Status: ${p.status}`,20,126);doc.save(`Payslip-${u?.full_name||"Staff"}-${p.period_start}.pdf`)};
 
-$("#exportBtn").onclick=async()=>{const dump={exported_at:new Date().toISOString(),settings,students,staff,packages,classes,attendance,progress,invoices,payments,payroll,reminders,availability};const blob=new Blob([JSON.stringify(dump,null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`academy-backup-${today()}.json`;a.click();URL.revokeObjectURL(a.href)};
+$("#exportBtn").onclick=async()=>{const dump={exported_at:new Date().toISOString(),settings,students,staff,packages,classes,attendance,progress,invoices,payments,payroll,reminders,availability,communications};const blob=new Blob([JSON.stringify(dump,null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`academy-backup-${today()}.json`;a.click();URL.revokeObjectURL(a.href)};
 document.addEventListener("keydown",e=>{if(e.key==="Escape")closeModals()});
 init();
